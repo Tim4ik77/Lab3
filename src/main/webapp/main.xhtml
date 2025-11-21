@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:jsf="http://xmlns.jcp.org/jsf"
+      xmlns:pt="http://xmlns.jcp.org/jsf/passthrough">
+<h:head>
+    <title>Лабораторная работа по Веб-программированию</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8, #d9e2ec);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        #container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .hit-yes {
+            background: #d4edda;
+            color: #155724;
+        }
+        .hit-no {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .x-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 2px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .x-btn.selected {
+            background: #28a745;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+            color: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background: #007bff;
+            color: white;
+        }
+        .student-header {
+            font-style: italic;
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 20px 0;
+            padding: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        .lab-header {
+            font-style: italic;
+            font-size: 30px;
+            color: #2c3e50;
+            margin: 20px 0;
+            padding: 10px;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #svgContainer {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            margin: 20px 0;
+        }
+    </style>
+    <script>
+        let xSel = null;
+        let baseScale = 70; // базовый масштаб для R = 2
+        let centerX, centerY;
+        let width = 800, height = 800;
+
+        function init() {
+            centerX = width / 2;
+            centerY = height / 2;
+            createChart();
+
+            // Установка обработчиков событий для кнопок X
+            document.querySelectorAll('.x-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.x-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    xSel = parseFloat(this.dataset.val);
+                });
+            });
+        }
+
+        function createChart() {
+            const container = document.getElementById('svgContainer');
+            container.innerHTML = '';
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.setAttribute('id', 'chart');
+            container.appendChild(svg);
+
+            // Добавляем обработчик клика по SVG
+            svg.addEventListener('click', function(e) {
+                const rStr = document.getElementById('r').value;
+                if (!rStr) {
+                    alert('Сначала выберите R');
+                    return;
+                }
+
+                const r = parseFloat(rStr);
+                const rect = svg.getBoundingClientRect();
+                const svgX = e.clientX - rect.left;
+                const svgY = e.clientY - rect.top;
+
+                // Получаем координаты в системе графика (где R=2)
+                const x_graph = (svgX - centerX) / baseScale;
+                const y_graph = -(svgY - centerY) / baseScale;
+
+                // Преобразуем в реальные координаты для текущего R
+                const x_real = x_graph * (r / 2);
+                const y_real = y_graph * (r / 2);
+
+                // Округляем до 4 знаков
+                const xRounded = Math.round(x_real * 10000) / 10000;
+                const yRounded = Math.round(y_real * 10000) / 10000;
+
+                // Обновляем интерфейс
+                xSel = xRounded;
+                document.querySelectorAll('.x-btn').forEach(b => b.classList.remove('selected'));
+                document.getElementById('y').value = yRounded;
+
+                // Отправляем форму
+                document.getElementById('jsfForm').submit();
+            });
+
+            drawBaseChart(svg);
+            drawHistoryPoints(svg);
+        }
+
+        function drawBaseChart(svg) {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', 'arrow');
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '10');
+            marker.setAttribute('refX', '5');
+            marker.setAttribute('refY', '5');
+            marker.setAttribute('orient', 'auto-start-reverse');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+            path.setAttribute('fill', 'black');
+            marker.appendChild(path);
+            defs.appendChild(marker);
+            svg.appendChild(defs);
+
+            const margin = 20;
+
+            // Оси координат
+            const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            xAxis.setAttribute('x1', margin);
+            xAxis.setAttribute('y1', centerY);
+            xAxis.setAttribute('x2', width - margin);
+            xAxis.setAttribute('y2', centerY);
+            xAxis.setAttribute('stroke', 'black');
+            xAxis.setAttribute('stroke-width', '2');
+            xAxis.setAttribute('marker-end', 'url(#arrow)');
+            svg.appendChild(xAxis);
+
+            const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            yAxis.setAttribute('x1', centerX);
+            yAxis.setAttribute('y1', height - margin);
+            yAxis.setAttribute('x2', centerX);
+            yAxis.setAttribute('y2', margin);
+            yAxis.setAttribute('stroke', 'black');
+            yAxis.setAttribute('stroke-width', '2');
+            yAxis.setAttribute('marker-end', 'url(#arrow)');
+            svg.appendChild(yAxis);
+
+            // Метки осей
+            const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xLabel.setAttribute('x', width - 20);
+            xLabel.setAttribute('y', centerY - 10);
+            xLabel.setAttribute('font-size', '16');
+            xLabel.setAttribute('fill', 'black');
+            xLabel.textContent = 'X';
+            svg.appendChild(xLabel);
+
+            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yLabel.setAttribute('x', centerX + 10);
+            yLabel.setAttribute('y', 20);
+            yLabel.setAttribute('font-size', '16');
+            yLabel.setAttribute('fill', 'black');
+            yLabel.textContent = 'Y';
+            svg.appendChild(yLabel);
+
+            // Фигуры области (для R=2)
+            const rectangle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rectangle.setAttribute('x', centerX - 2 * baseScale);
+            rectangle.setAttribute('y', centerY - 1 * baseScale);
+            rectangle.setAttribute('width', 2 * baseScale);
+            rectangle.setAttribute('height', 1 * baseScale);
+            rectangle.setAttribute('fill', 'blue');
+            rectangle.setAttribute('opacity', '0.3');
+            svg.appendChild(rectangle);
+
+            const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            triangle.setAttribute('points',
+                `${centerX},${centerY} ` +
+                `${centerX + 2 * baseScale},${centerY} ` +
+                `${centerX},${centerY + 1 * baseScale}`
+            );
+            triangle.setAttribute('fill', 'blue');
+            triangle.setAttribute('opacity', '0.3');
+            svg.appendChild(triangle);
+
+            const sectorPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            sectorPath.setAttribute('d',
+                `M ${centerX} ${centerY} ` +
+                `L ${centerX - 2 * baseScale} ${centerY} ` +
+                `A ${2 * baseScale} ${2 * baseScale} 0 0 0 ` +
+                `${centerX} ${centerY + 2 * baseScale} ` +
+                `Z`
+            );
+            sectorPath.setAttribute('fill', 'blue');
+            sectorPath.setAttribute('opacity', '0.3');
+            svg.appendChild(sectorPath);
+
+            // Метки на осях
+            const ticks = [-2, -1, 1, 2];
+            ticks.forEach(val => {
+                // Метки для оси X
+                const xTick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                xTick.setAttribute('x1', centerX + val * baseScale);
+                xTick.setAttribute('y1', centerY - 4);
+                xTick.setAttribute('x2', centerX + val * baseScale);
+                xTick.setAttribute('y2', centerY + 4);
+                xTick.setAttribute('stroke', 'black');
+                svg.appendChild(xTick);
+
+                const xText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                xText.setAttribute('x', centerX + val * baseScale);
+                xText.setAttribute('y', centerY - 10);
+                xText.setAttribute('font-size', '14');
+                xText.setAttribute('text-anchor', 'middle');
+                xText.textContent = val === 1 ? 'R/2' : val === -1 ? '-R/2' : (val > 0 ? 'R' : '-R');
+                svg.appendChild(xText);
+
+                // Метки для оси Y
+                const yTick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                yTick.setAttribute('x1', centerX - 4);
+                yTick.setAttribute('y1', centerY - val * baseScale);
+                yTick.setAttribute('x2', centerX + 4);
+                yTick.setAttribute('y2', centerY - val * baseScale);
+                yTick.setAttribute('stroke', 'black');
+                svg.appendChild(yTick);
+
+                const yText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                yText.setAttribute('x', centerX + 8);
+                yText.setAttribute('y', centerY - val * baseScale + 4);
+                yText.setAttribute('font-size', '14');
+                yText.setAttribute('text-anchor', 'start');
+                yText.textContent = val === 1 ? 'R/2' : val === -1 ? '-R/2' : (val > 0 ? 'R' : '-R');
+                svg.appendChild(yText);
+            });
+        }
+
+        function drawHistoryPoints(svg) {
+            // Получаем историю из скрытого поля
+            const historyData = JSON.parse(document.getElementById('historyData').value || '[]');
+
+            const pointsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            pointsGroup.setAttribute('id', 'points');
+            svg.appendChild(pointsGroup);
+
+            historyData.forEach(entry => {
+                // переводим реальные координаты в "график с R=2"
+                const x_graph = entry.x * (2 / entry.r);
+                const y_graph = entry.y * (2 / entry.r);
+
+                const cx = centerX + x_graph * baseScale;
+                const cy = centerY - y_graph * baseScale; // ось Y вниз
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', cx);
+                circle.setAttribute('cy', cy);
+                circle.setAttribute('r', 5);
+                circle.setAttribute('fill', entry.hit ? 'green' : 'red');
+                circle.setAttribute('stroke', 'black');
+                circle.setAttribute('stroke-width', '0.5');
+                pointsGroup.appendChild(circle);
+            });
+        }
+
+        function checkAndSubmit() {
+            const y = document.getElementById('y').value.trim();
+            const r = document.getElementById('r').value;
+
+            // Валидация Y
+            const decimalRegex = /^-?\d+(\.\d{1,4})?$/;
+            if (!decimalRegex.test(y)) {
+                alert('Y должен быть числом с максимум 4 знаками после запятой');
+                return false;
+            }
+
+            const yValue = parseFloat(y);
+            if (yValue < -3 || yValue > 3) {
+                alert('Y должен быть в диапазоне от -3 до 3');
+                return false;
+            }
+
+            // Валидация X
+            if (xSel === null) {
+                alert('Выберите значение X');
+                return false;
+            }
+
+            // Валидация R
+            if (!r) {
+                alert('Выберите значение R');
+                return false;
+            }
+
+            // Устанавливаем значения в скрытые поля для отправки на сервер
+            document.getElementById('xHidden').value = xSel;
+            return true;
+        }
+
+        // Обновление графика при изменении R
+        function updateChart() {
+            createChart();
+        }
+
+        window.onload = init;
+    </script>
+</h:head>
+<h:body>
+    <div id="container">
+        <h1 class="lab-header">Лабораторная работа №1</h1>
+        <h2 class="student-header">
+            Студенты: Коробов Алексей Сергеевич, Сарваров Тимур Фазаелович <br/>
+            Группа: P3213 <br/>
+            Вариант: 466287
+        </h2>
+
+        <!-- Отображение ошибок -->
+        <h:panelGroup rendered="#{not empty bean.errorMessage}" styleClass="error">
+            #{bean.errorMessage}
+        </h:panelGroup>
+
+        <!-- Форма для ввода данных -->
+        <h:form id="jsfForm">
+            <!-- Скрытые поля для передачи данных -->
+            <h:inputHidden id="xHidden" value="#{bean.x}" />
+            <h:inputHidden id="historyData" value="#{bean.historyJson}" />
+
+            <div>
+                <label>Выберите X:</label><br/>
+                <button type="button" class="x-btn" data-val="-5">-5</button>
+                <button type="button" class="x-btn" data-val="-4">-4</button>
+                <button type="button" class="x-btn" data-val="-3">-3</button>
+                <button type="button" class="x-btn" data-val="-2">-2</button>
+                <button type="button" class="x-btn" data-val="-1">-1</button>
+                <button type="button" class="x-btn" data-val="0">0</button>
+                <button type="button" class="x-btn" data-val="1">1</button>
+                <button type="button" class="x-btn" data-val="2">2</button>
+                <button type="button" class="x-btn" data-val="3">3</button><br/><br/>
+
+                <label>Введите Y (-3 ... 3):</label><br/>
+                <h:inputText id="y" value="#{bean.y}" pt:placeholder="-3 ... 3" style="padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 200px; margin-bottom: 10px;"/>
+                <h:message for="y" style="color: red; display: block; margin-top: 5px;"/><br/>
+
+                <label>Выберите R:</label><br/>
+                <h:selectOneMenu id="r" value="#{bean.r}" onchange="updateChart()">
+                    <f:selectItem itemValue="" itemLabel="Выберите R" />
+                    <f:selectItem itemValue="1" itemLabel="1" />
+                    <f:selectItem itemValue="1.5" itemLabel="1.5" />
+                    <f:selectItem itemValue="2" itemLabel="2" />
+                    <f:selectItem itemValue="2.5" itemLabel="2.5" />
+                    <f:selectItem itemValue="3" itemLabel="3" />
+                </h:selectOneMenu>
+                <h:message for="r" style="color: red; display: block; margin-top: 5px;"/><br/><br/>
+
+                <h:commandButton value="Проверить" action="#{bean.checkPoint}" onclick="return checkAndSubmit();" styleClass="btn-submit" />
+            </div>
+        </h:form>
+
+        <!-- Контейнер для SVG-графика -->
+        <div id="svgContainer"></div>
+
+        <!-- Таблица результатов -->
+        <h:panelGroup rendered="#{not empty bean.history}">
+            <table id="table">
+                <thead>
+                <tr>
+                    <th>X</th>
+                    <th>Y</th>
+                    <th>R</th>
+                    <th>Попадание</th>
+                    <th>Время</th>
+                    <th>Время выполнения (мкс)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <ui:repeat value="#{bean.history}" var="entry">
+                    <tr class="#{entry.hit ? 'hit-yes' : 'hit-no'}">
+                        <td>#{entry.x}</td>
+                        <td>#{entry.y}</td>
+                        <td>#{entry.r}</td>
+                        <td>#{entry.hit ? 'Да' : 'Нет'}</td>
+                        <td>#{entry.time}</td>
+                        <td>#{entry.execTime}</td>
+                    </tr>
+                </ui:repeat>
+                </tbody>
+            </table>
+        </h:panelGroup>
+
+        <!-- Ссылка для возврата на стартовую страницу -->
+        <div style="margin-top: 20px; text-align: center;">
+            <h:link value="Вернуться на стартовую страницу" outcome="index" style="display: inline-block; padding: 10px 20px; background-color: #3498db; color: white !important; text-decoration: none; border-radius: 5px;"/>
+        </div>
+    </div>
+</h:body>
+</html>

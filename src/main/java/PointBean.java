@@ -14,7 +14,6 @@ import javax.persistence.TypedQuery;
 @SessionScoped
 public class PointBean implements Serializable {
 
-    // ... (поля X, Y, R, options, graphX... остаются без изменений)
     private static final Double[] X_OPTIONS = {-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0};
     private Double x = 0.0;
     private Double y;
@@ -28,7 +27,6 @@ public class PointBean implements Serializable {
 
     static {
         try {
-            // Убедись, что имя persistence-unit совпадает с твоим persistence.xml
             emf = Persistence.createEntityManagerFactory("points-pu");
         } catch (Exception e) {
             e.printStackTrace();
@@ -72,10 +70,8 @@ public class PointBean implements Serializable {
         entry.setR(currentR);
         entry.setHit(hit);
 
-        // ВАЖНО: сохраняем объект времени, а не строку
         entry.setTimestamp(LocalDateTime.now());
 
-        // Сохраняем время выполнения
         entry.setExecTime((endTime - startTime) / 1000.0);
 
         saveToDb(entry);
@@ -98,7 +94,6 @@ public class PointBean implements Serializable {
         }
     }
 
-    // ... (метод checkArea и геттеры/сеттеры остаются без изменений)
     private boolean checkArea(double x, double y, double r) {
         if (x <= 0 && y >= 0) return x >= -r/2.0 && y <= r;
         if (x <= 0 && y <= 0) return (x * x + y * y) <= (r/2.0 * r/2.0);
@@ -106,7 +101,6 @@ public class PointBean implements Serializable {
         return false;
     }
 
-    // Getters...
     public Double[] getXOptions() { return X_OPTIONS; }
     public Double getX() { return x; }
     public void setX(Double x) { this.x = x; }

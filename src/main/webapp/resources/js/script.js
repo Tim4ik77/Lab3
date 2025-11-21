@@ -1,185 +1,50 @@
-/// Объект для хранения состояния графика
-const chartState = {
-    xSel: null,
-    baseScale: 70, // базовый масштаб для R = 2
-    width: 800,
-    height: 800,
-    centerX: 0,
-    centerY: 0,
-    form: null,
-    xButtons: null,
-    yInput: null,
-    rSelect: null
-};
+// Настройки графика
+const WIDTH = 400;
+const HEIGHT = 400;
+const MARGIN = 100; // Отступ для подписей и стрелок
+const CENTER_X = WIDTH / 2;
+const CENTER_Y = HEIGHT / 2;
+const SCALE = 40; // Пикселей на единицу координат
 
-// Инициализация графика
-function initChart(historyData) {
-    console.log('Инициализация графика с данными:', historyData);
+// Ссылка на DOM элементы
+const chartContainer = document.getElementById('chart-container');
 
-    // Получаем элементы DOM
-    chartState.xButtons = document.querySelectorAll('.x-btn');
-    chartState.yInput = document.getElementById('y');
-    chartState.rSelect = document.getElementById('r');
+function drawGraph() {
+    if (!chartContainer) return;
+    chartContainer.innerHTML = ''; // Очистка перед перерисовкой
 
-    // Находим форму (может иметь составной ID в JSF)
-    chartState.form = document.getElementById('jsfForm');
-    if (!chartState.form) {
-        // Поиск по частичному совпадению ID
-        const forms = document.querySelectorAll('form');
-        for (let form of forms) {
-            if (form.id && form.id.includes('jsfForm')) {
-                chartState.form = form;
-                break;
-            }
-        }
+    // 1. Получаем текущий R прямо из формы
+    // Ищем выбранный input типа radio.
+    // Если ничего не выбрано (страница только загрузилась), берем 1.
+    let rVal = 1;
+    const selectedRadio = document.querySelector('input[type="radio"]:checked');
+    if (selectedRadio) {
+        rVal = parseFloat(selectedRadio.value);
+    } else if (typeof currentR !== 'undefined') {
+        rVal = currentR; // Фолбэк на переменную из JSF
     }
 
-    // Обработчики для кнопок X
-    if (chartState.xButtons) {
-        chartState.xButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                chartState.xButtons.forEach(b => b.classList.remove('selected'));
-                this.classList.add('selected');
-                chartState.xSel = parseFloat(this.getAttribute('data-val'));
-
-                // Обновляем скрытое поле для JSF
-                const hiddenInput = document.querySelector('[id$=":xHidden"]');
-                if (hiddenInput) {
-                    hiddenInput.value = chartState.xSel;
-                }
-            });
-        });
-    }
-
-    // Инициализация размеров и центра графика
-    chartState.centerX = chartState.width / 2;
-    chartState.centerY = chartState.height / 2;
-
-    // Создание графика
-    createChart(historyData);
-
-    // Обработчик изменения R (для перерисовки графика)
-    if (chartState.rSelect) {
-        chartState.rSelect.addEventListener('change', function() {
-            createChart(historyData);
-        });
-    }
-}
-
-// Проверка валидности формы
-function validateForm() {
-    console.log('Проверка валидности формы');
-
-    const y = chartState.yInput ? chartState.yInput.value.trim() : '';
-    const r = chartState.rSelect ? chartState.rSelect.value : '';
-
-    // Валидация Y
-    const decimalRegex = /^-?\d+(\.\d{1,4})?$/;
-    if (!decimalRegex.test(y)) {
-        alert('Y должен быть числом с максимум 4 знаками после запятой');
-        return false;
-    }
-
-    const yValue = parseFloat(y);
-    if (yValue < -3 || yValue > 3 || isNaN(yValue)) {
-        alert('Y должен быть в диапазоне от -3 до 3');
-        return false;
-    }
-
-    // Валидация X
-    if (chartState.xSel === null) {
-        alert('Выберите значение X');
-        return false;
-    }
-
-    // Валидация R
-    if (!r || r === '0') {
-        alert('Выберите значение R');
-        return false;
-    }
-
-    // Обновляем скрытое поле перед отправкой
-    const hiddenInput = document.querySelector('[id$=":xHidden"]');
-    if (hiddenInput) {
-        hiddenInput.value = chartState.xSel;
-    }
-
-    return true;
-}
-
-// Создание SVG-графика
-function createChart(historyData) {
-    const container = document.getElementById('svgContainer');
-    if (!container) return;
-
-    container.innerHTML = '';
-
+    // Создаем SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', chartState.width);
-    svg.setAttribute('height', chartState.height);
-    svg.setAttribute('id', 'chart');
-    container.appendChild(svg);
+    svg.setAttribute('width', WIDTH);
+    svg.setAttribute('height', HEIGHT);
+    svg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+    svg.style.border = '1px solid #ddd';
+    svg.style.background = 'white';
+    svg.addEventListener('click', (e) => handleGraphClick(e, rVal));
+    chartContainer.appendChild(svg);
 
-    // Добавляем обработчик клика по SVG
-    svg.addEventListener('click', function(e) {
-        const rStr = chartState.rSelect ? chartState.rSelect.value : '';
-        if (!rStr || rStr === '0') {
-            alert('Сначала выберите R');
-            return;
-        }
-
-        const r = parseFloat(rStr);
-        const rect = svg.getBoundingClientRect();
-        const svgX = e.clientX - rect.left;
-        const svgY = e.clientY - rect.top;
-
-        // Получаем координаты в системе графика (где R=2)
-        const x_graph = (svgX - chartState.centerX) / chartState.baseScale;
-        const y_graph = -(svgY - chartState.centerY) / chartState.baseScale;
-
-        // Преобразуем в реальные координаты для текущего R
-        const x_real = x_graph * (r / 2);
-        const y_real = y_graph * (r / 2);
-
-        // Округляем до 4 знаков
-        const xRounded = Math.round(x_real * 10000) / 10000;
-        const yRounded = Math.round(y_real * 10000) / 10000;
-
-        // Обновляем интерфейс
-        chartState.xSel = xRounded;
-        chartState.xButtons.forEach(b => b.classList.remove('selected'));
-
-        // Обновляем значение Y в поле ввода
-        if (chartState.yInput) {
-            chartState.yInput.value = yRounded;
-        }
-
-        // Обновляем скрытое поле X
-        const hiddenInput = document.querySelector('[id$="xHidden"]');
-        if (hiddenInput) {
-            hiddenInput.value = xRounded;
-        }
-
-        // Отправляем форму
-        if (chartState.form) {
-            chartState.form.requestSubmit();
-        }
-    });
-
-    drawBaseChart(svg);
-    drawHistoryPoints(svg, historyData);
-}
-
-// Отрисовка базовых элементов графика (оси, фигуры области)
-function drawBaseChart(svg) {
+    // 2. Определяем стрелку (Marker)
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
     marker.setAttribute('id', 'arrow');
-    marker.setAttribute('markerWidth', '10');
-    marker.setAttribute('markerHeight', '10');
-    marker.setAttribute('refX', '5');
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '10'); // Острие стрелки
     marker.setAttribute('refY', '5');
-    marker.setAttribute('orient', 'auto-start-reverse');
+    marker.setAttribute('markerWidth', '6');
+    marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('orient', 'auto');
+
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
     path.setAttribute('fill', 'black');
@@ -187,147 +52,211 @@ function drawBaseChart(svg) {
     defs.appendChild(marker);
     svg.appendChild(defs);
 
-    const margin = 20;
+    // 3. Рисуем фигуры (Вариант: Прямоугольник II четв, Сектор III четв, Треугольник IV четв)
+    drawShapes(svg, rVal);
 
-    // Оси координат
+    // 4. Рисуем Оси
+    drawAxes(svg);
+
+    // 5. Рисуем риски (ticks) и подписи
+    drawTicks(svg, rVal);
+
+    // 6. Рисуем точки из истории
+    if (typeof pointsHistory !== 'undefined') {
+        pointsHistory.forEach(pt => {
+            drawPoint(svg, pt.x, pt.y, rVal);
+        });
+    }
+}
+
+function drawShapes(svg, r) {
+    // Цвет фигур
+    const shapeColor = '#007bff';
+    const shapeOpacity = '0.5';
+
+    // II Четверть: Прямоугольник (-R/2 <= x <= 0, 0 <= y <= R)
+    // SVG: x от (CENTER_X - R/2*SCALE) до CENTER_X
+    // SVG: y от (CENTER_Y - R*SCALE) до CENTER_Y
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', CENTER_X - (r / 2) * SCALE);
+    rect.setAttribute('y', CENTER_Y - r * SCALE);
+    rect.setAttribute('width', (r / 2) * SCALE);
+    rect.setAttribute('height', r * SCALE);
+    rect.setAttribute('fill', shapeColor);
+    rect.setAttribute('fill-opacity', shapeOpacity);
+    svg.appendChild(rect);
+
+    // III Четверть: Сектор (R/2)
+    // SVG Path: Move Center -> Line (-R/2, 0) -> Arc -> Line (0, -R/2) -> Close
+    const sector = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    sector.setAttribute('d',
+        `M ${CENTER_X} ${CENTER_Y} ` +
+        `L ${CENTER_X - (r / 2) * SCALE} ${CENTER_Y} ` +
+        `A ${(r / 2) * SCALE} ${(r / 2) * SCALE} 0 0 0 ${CENTER_X} ${CENTER_Y + (r / 2) * SCALE} ` +
+        `Z`
+    );
+    sector.setAttribute('fill', shapeColor);
+    sector.setAttribute('fill-opacity', shapeOpacity);
+    svg.appendChild(sector);
+
+    // IV Четверть: Треугольник ((0,0), (R/2, 0), (0, -R/2))
+    // SVG: (CENTER_X, CENTER_Y), (CENTER_X + R/2, CENTER_Y), (CENTER_X, CENTER_Y + R/2)
+    const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    triangle.setAttribute('points',
+        `${CENTER_X},${CENTER_Y} ` +
+        `${CENTER_X + (r / 2) * SCALE},${CENTER_Y} ` +
+        `${CENTER_X},${CENTER_Y + (r / 2) * SCALE}`
+    );
+    triangle.setAttribute('fill', shapeColor);
+    triangle.setAttribute('fill-opacity', shapeOpacity);
+    svg.appendChild(triangle);
+}
+
+function drawAxes(svg) {
+    // Ось X
     const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    xAxis.setAttribute('x1', margin);
-    xAxis.setAttribute('y1', chartState.centerY);
-    xAxis.setAttribute('x2', chartState.width - margin);
-    xAxis.setAttribute('y2', chartState.centerY);
+    xAxis.setAttribute('x1', MARGIN);
+    xAxis.setAttribute('y1', CENTER_Y);
+    xAxis.setAttribute('x2', WIDTH - MARGIN);
+    xAxis.setAttribute('y2', CENTER_Y);
     xAxis.setAttribute('stroke', 'black');
-    xAxis.setAttribute('stroke-width', '2');
     xAxis.setAttribute('marker-end', 'url(#arrow)');
     svg.appendChild(xAxis);
 
-    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    yAxis.setAttribute('x1', chartState.centerX);
-    yAxis.setAttribute('y1', chartState.height - margin);
-    yAxis.setAttribute('x2', chartState.centerX);
-    yAxis.setAttribute('y2', margin);
-    yAxis.setAttribute('stroke', 'black');
-    yAxis.setAttribute('stroke-width', '2');
-    yAxis.setAttribute('marker-end', 'url(#arrow)');
-    svg.appendChild(yAxis);
-
-    // Метки осей
+    // Текст X
     const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    xLabel.setAttribute('x', chartState.width - 20);
-    xLabel.setAttribute('y', chartState.centerY - 10);
-    xLabel.setAttribute('font-size', '16');
-    xLabel.setAttribute('fill', 'black');
+    xLabel.setAttribute('x', WIDTH - MARGIN + 10);
+    xLabel.setAttribute('y', CENTER_Y + 5);
     xLabel.textContent = 'X';
     svg.appendChild(xLabel);
 
+    // Ось Y
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    yAxis.setAttribute('x1', CENTER_X);
+    yAxis.setAttribute('y1', HEIGHT - MARGIN);
+    yAxis.setAttribute('x2', CENTER_X);
+    yAxis.setAttribute('y2', MARGIN);
+    yAxis.setAttribute('stroke', 'black');
+    yAxis.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(yAxis);
+
+    // Текст Y
     const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    yLabel.setAttribute('x', chartState.centerX + 10);
-    yLabel.setAttribute('y', 20);
-    yLabel.setAttribute('font-size', '16');
-    yLabel.setAttribute('fill', 'black');
+    yLabel.setAttribute('x', CENTER_X + 10);
+    yLabel.setAttribute('y', MARGIN - 5);
     yLabel.textContent = 'Y';
     svg.appendChild(yLabel);
+}
 
-    // Фигуры области (для R=2)
-    const rectangle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rectangle.setAttribute('x', chartState.centerX - 2 * chartState.baseScale);
-    rectangle.setAttribute('y', chartState.centerY - 1 * chartState.baseScale);
-    rectangle.setAttribute('width', 2 * chartState.baseScale);
-    rectangle.setAttribute('height', 1 * chartState.baseScale);
-    rectangle.setAttribute('fill', 'blue');
-    rectangle.setAttribute('opacity', '0.3');
-    svg.appendChild(rectangle);
+function drawTicks(svg, r) {
+    // Значения тиков (как в задании: -R, -R/2, R/2, R)
+    const tickValues = [-r, -r/2, r/2, r];
+    // Если вы хотите подписи именно "R", "R/2" - используйте этот массив
+    // const tickLabels = ['-R', '-R/2', 'R/2', 'R'];
 
-    const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    triangle.setAttribute('points',
-        `${chartState.centerX},${chartState.centerY} ` +
-        `${chartState.centerX + 2 * chartState.baseScale},${chartState.centerY} ` +
-        `${chartState.centerX},${chartState.centerY + 1 * chartState.baseScale}`
-    );
-    triangle.setAttribute('fill', 'blue');
-    triangle.setAttribute('opacity', '0.3');
-    svg.appendChild(triangle);
+    // Если нужны числовые значения (например -5, -2.5...):
+    const tickLabels = tickValues.map(v => v.toString());
 
-    const sectorPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    sectorPath.setAttribute('d',
-        `M ${chartState.centerX} ${chartState.centerY} ` +
-        `L ${chartState.centerX - 2 * chartState.baseScale} ${chartState.centerY} ` +
-        `A ${2 * chartState.baseScale} ${2 * chartState.baseScale} 0 0 0 ` +
-        `${chartState.centerX} ${chartState.centerY + 2 * chartState.baseScale} ` +
-        `Z`
-    );
-    sectorPath.setAttribute('fill', 'blue');
-    sectorPath.setAttribute('opacity', '0.3');
-    svg.appendChild(sectorPath);
+    tickValues.forEach((val, i) => {
+        // На оси X
+        const xPos = CENTER_X + val * SCALE;
+        const lineX = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lineX.setAttribute('x1', xPos);
+        lineX.setAttribute('y1', CENTER_Y - 3);
+        lineX.setAttribute('x2', xPos);
+        lineX.setAttribute('y2', CENTER_Y + 3);
+        lineX.setAttribute('stroke', 'black');
+        svg.appendChild(lineX);
 
-    // Метки на осях
-    const ticks = [-2, -1, 1, 2];
-    ticks.forEach(val => {
-        // Метки для оси X
-        const xTick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        xTick.setAttribute('x1', chartState.centerX + val * chartState.baseScale);
-        xTick.setAttribute('y1', chartState.centerY - 4);
-        xTick.setAttribute('x2', chartState.centerX + val * chartState.baseScale);
-        xTick.setAttribute('y2', chartState.centerY + 4);
-        xTick.setAttribute('stroke', 'black');
-        svg.appendChild(xTick);
+        const textX = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textX.setAttribute('x', xPos);
+        textX.setAttribute('y', CENTER_Y + 15);
+        textX.setAttribute('text-anchor', 'middle');
+        textX.setAttribute('font-size', '12');
+        textX.textContent = tickLabels[i];
+        svg.appendChild(textX);
 
-        const xText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        xText.setAttribute('x', chartState.centerX + val * chartState.baseScale);
-        xText.setAttribute('y', chartState.centerY - 10);
-        xText.setAttribute('font-size', '14');
-        xText.setAttribute('text-anchor', 'middle');
-        xText.textContent = val === 1 ? 'R/2' : val === -1 ? '-R/2' : (val > 0 ? 'R' : '-R');
-        svg.appendChild(xText);
+        // На оси Y
+        const yPos = CENTER_Y - val * SCALE;
+        const lineY = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lineY.setAttribute('x1', CENTER_X - 3);
+        lineY.setAttribute('y1', yPos);
+        lineY.setAttribute('x2', CENTER_X + 3);
+        lineY.setAttribute('y2', yPos);
+        lineY.setAttribute('stroke', 'black');
+        svg.appendChild(lineY);
 
-        // Метки для оси Y
-        const yTick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        yTick.setAttribute('x1', chartState.centerX - 4);
-        yTick.setAttribute('y1', chartState.centerY - val * chartState.baseScale);
-        yTick.setAttribute('x2', chartState.centerX + 4);
-        yTick.setAttribute('y2', chartState.centerY - val * chartState.baseScale);
-        yTick.setAttribute('stroke', 'black');
-        svg.appendChild(yTick);
-
-        const yText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        yText.setAttribute('x', chartState.centerX + 8);
-        yText.setAttribute('y', chartState.centerY - val * chartState.baseScale + 4);
-        yText.setAttribute('font-size', '14');
-        yText.setAttribute('text-anchor', 'start');
-        yText.textContent = val === 1 ? 'R/2' : val === -1 ? '-R/2' : (val > 0 ? 'R' : '-R');
-        svg.appendChild(yText);
+        const textY = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textY.setAttribute('x', CENTER_X + 8);
+        textY.setAttribute('y', yPos + 4);
+        textY.setAttribute('font-size', '12');
+        textY.textContent = tickLabels[i];
+        svg.appendChild(textY);
     });
 }
 
-// Отрисовка исторических точек на графике
-function drawHistoryPoints(svg, history) {
-    if (!history || !Array.isArray(history)) {
-        console.log('Нет данных истории для отрисовки');
-        return;
+function drawPoint(svg, x, y, r) {
+    const cx = CENTER_X + x * SCALE;
+    const cy = CENTER_Y - y * SCALE;
+
+    // Проверяем попадание на клиенте с ТЕКУЩИМ R
+    const isHit = checkHit(x, y, r);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', 4);
+    circle.setAttribute('fill', isHit ? '#28a745' : '#dc3545'); // Зеленый или Красный
+    circle.setAttribute('stroke', '#000');
+    circle.setAttribute('stroke-width', '1');
+    svg.appendChild(circle);
+}
+
+// Логика проверки (должна совпадать с Java)
+function checkHit(x, y, r) {
+    // 1. II Четверть: Прямоугольник
+    // X in [-R/2, 0], Y in [0, R]
+    if (x <= 0 && y >= 0) {
+        return x >= -r/2.0 && y <= r;
     }
 
-    const pointsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    pointsGroup.setAttribute('id', 'points');
-    svg.appendChild(pointsGroup);
+    // 2. III Четверть: Сектор
+    // X <= 0, Y <= 0, x^2 + y^2 <= (R/2)^2
+    if (x <= 0 && y <= 0) {
+        return (x * x + y * y) <= (r/2.0 * r/2.0);
+    }
 
-    history.forEach(entry => {
-        try {
-            // переводим реальные координаты в "график с R=2"
-            const x_graph = entry.x * (2 / entry.r);
-            const y_graph = entry.y * (2 / entry.r);
+    // 3. IV Четверть: Треугольник
+    // X >= 0, Y <= 0. Прямая Y = X - R/2. Попадание если Y >= X - R/2
+    if (x >= 0 && y <= 0) {
+        return y >= (x - r/2.0);
+    }
 
-            const cx = chartState.centerX + x_graph * chartState.baseScale;
-            const cy = chartState.centerY - y_graph * chartState.baseScale; // ось Y вниз
-
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', cx);
-            circle.setAttribute('cy', cy);
-            circle.setAttribute('r', 5);
-            circle.setAttribute('fill', entry.hit ? 'green' : 'red');
-            circle.setAttribute('stroke', 'black');
-            circle.setAttribute('stroke-width', '0.5');
-            pointsGroup.appendChild(circle);
-        } catch (e) {
-            console.error('Ошибка при отрисовке точки:', e);
-        }
-    });
+    return false;
 }
+
+function handleGraphClick(e, r) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const graphX = (clickX - CENTER_X) / SCALE;
+    const graphY = (CENTER_Y - clickY) / SCALE;
+
+    // Ищем скрытую форму по частичным ID (так как JSF добавляет префиксы)
+    // Обычно id="hiddenForm:graphX"
+    let xInput = document.querySelector("input[id$='graphX']");
+    let yInput = document.querySelector("input[id$='graphY']");
+    let submitBtn = document.querySelector("[id$='graphSubmit']");
+
+    if (xInput && yInput && submitBtn) {
+        xInput.value = graphX.toFixed(4);
+        yInput.value = graphY.toFixed(4);
+        submitBtn.click();
+    } else {
+        console.error("Не найдена скрытая форма JSF");
+    }
+}
+
+// Запуск при загрузке
+window.onload = drawGraph;

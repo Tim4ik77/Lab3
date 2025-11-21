@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html">
+<h:head>
+    <title>Лабораторная работа №3 - Старт</title>
+    <h:outputStylesheet name="css/style.css"/>
+    <style>
+        .clock-container {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 50px;
+            color: #2c3e50;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</h:head>
+<h:body>
+    <div id="container" style="text-align: center;">
+        <h1 class="lab-header">Лабораторная работа №3</h1>
+        <div class="student-header">
+            Студенты: Коробов Алексей Сергеевич, Сарваров Тимур Фазаелович <br/>
+            Группа: P3213 <br/>
+            Вариант: 1713
+        </div>
+
+        <div class="clock-container" id="clock">
+        </div>
+
+        <h:form>
+            <h:commandButton action="main?faces-redirect=true" value="Перейти к основной странице"
+                             styleClass="nav-button"/>
+        </h:form>
+    </div>
+
+    <script type="text/javascript">
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            const dateString = now.toLocaleDateString();
+            document.getElementById('clock').innerHTML = dateString + " " + timeString;
+        }
+        updateClock();
+        setInterval(updateClock, 11000);
+    </script>
+</h:body>
+</html>
